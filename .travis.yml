@@ -31,9 +31,27 @@ matrix:
 cache:
     apt: true
 
+addons:
+    apt:
+        packages:
+            - libegl1-mesa  # Required by Qt xcb platform plugin
+            - libxkbcommon-x11-0 # needed for Qt plugins
+            - libxkbcommon0
+            - libxkbcommon-dev
+
 before_install:
     # On MacOS: install python3 if needed
     - source ./ci/travis_osx.sh
+
+    # Start X server with dummy video dirver
+    # Use this instead of Xvfb to have RANDR extension
+    # Otherwise there is a bug with Qt5.10.0
+    - if [ "$TRAVIS_OS_NAME" == "linux" ];
+      then
+          export DISPLAY=:99.0;
+          Xorg -noreset +extension GLX +extension RANDR +extension RENDER -logfile ./99.log -config ./ci/travis_xorg.conf :99 &
+          sleep 3;
+      fi
 
 install:
 

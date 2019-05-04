@@ -295,7 +295,6 @@ class testPyMcaBatch(TestCaseQt):
         from time import sleep
         while not os.path.exists(imageFile):
             sleep(1)
-            print(imageFile)
             self.qapp.processEvents()
         
         # Wait until result is finished writting
