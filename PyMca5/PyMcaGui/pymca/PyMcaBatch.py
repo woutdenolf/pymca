@@ -1007,13 +1007,19 @@ class McaBatchGUI(qt.QWidget):
         else:
             self.raise_()
 
-    def start(self, allowIndependent=True):
+    def start(self, asthread=False, blocking=False):
+        """
+        :param bool asthread: force fit in thread instead of subprocess(es)
+        :param bool blocking: bloccking call in case of single process
+        """
         if not len(self.fileList):
             qt.QMessageBox.critical(self, "ERROR",'Empty file list')
             self.raise_()
             return
 
-        if self.__splitBox.isChecked():
+        # Raise exception in case multi processing is not allowed
+        multiprocess = self.__splitBox.isChecked() and not asthread
+        if multiprocess:
             if sys.platform == 'darwin':
                 if ".app" in os.path.dirname(__file__):
                     text = 'Multiple processes only supported on MacOS X when built from source\n'
@@ -1035,6 +1041,7 @@ class McaBatchGUI(qt.QWidget):
                         self.raise_()
                         return
 
+        # Verify config file
         if (self.configFile is None) or (not self.__goodConfigFile(self.configFile)):
             qt.QMessageBox.critical(self, "ERROR",'Invalid fit configuration file')
             self.raise_()
@@ -1045,6 +1052,8 @@ class McaBatchGUI(qt.QWidget):
                                         'Number of config files should be either one or equal to number of files')
                 self.raise_()
                 return
+
+        # Verify output
         if (self.outputDir is None) or (not self.__goodOutputDir(self.outputDir)):
             qt.QMessageBox.critical(self, "ERROR",'Invalid output directory')
             self.raise_()
@@ -1094,7 +1103,7 @@ class McaBatchGUI(qt.QWidget):
             filestep = 1
             mcastep = 1
             if len(self.fileList) == 1:
-                if self.__splitBox.isChecked():
+                if multiprocess:
                     nbatches = int(qt.safe_str(self.__splitSpin.text()))
                     mcastep = nbatches
         cmd.addOption('overwrite', value=overwrite)
@@ -1114,16 +1123,16 @@ class McaBatchGUI(qt.QWidget):
             self._edfSimpleViewer.close()
             self._edfSimpleViewer = None
 
+        # Launch `cmd` in thread or subprocess(es)
         wname = "Batch from %s to %s " % (os.path.basename(self.fileList[ 0]),
                                           os.path.basename(self.fileList[-1]))
-        bthread = cmd.roifit
-        multiprocess = self.__splitBox.isChecked()
+        bthread = asthread or cmd.roifit
         bthread |= sys.platform == 'darwin' and\
                    ((".app" in os.path.dirname(__file__)) or (not multiprocess))
-        if bthread:
+        if bthread :
             self._runInThread(cmd, wname)
         else:
-            self._runInProcess(cmd, allowIndependent=allowIndependent)
+            self._runInProcess(cmd, blocking=blocking)
 
     def _runInThread(self, cmd, wname):
         """
@@ -1132,7 +1141,7 @@ class McaBatchGUI(qt.QWidget):
         kwargs = cmd.getOptions('outdir', 'html', 'htmlindex', 'table')
         kwargs['outputdir'] = kwargs.pop('outdir')
         window = McaBatchWindow(name=wname, actions=1,
-                                showResult=self._showResult, **kwargs)
+                                showresult=self._showResult, **kwargs)
         kwargs = cmd.getAllOptionsBut('html', 'htmlindex', 'table')
         kwargs['outputdir'] = kwargs.pop('outdir')
         thread = McaBatch(window, self.configFile, filelist=self.fileList, **kwargs)
@@ -1141,7 +1150,7 @@ class McaBatchGUI(qt.QWidget):
         self.__window = window
         self.__thread = thread
     
-    def _runInProcess(self, cmd, allowIndependent=True):
+    def _runInProcess(self, cmd, blocking=False):
         """
         Run `cmd` in one of more processes
         """
@@ -1177,7 +1186,6 @@ class McaBatchGUI(qt.QWidget):
             self.show()
         else:
             # Run in one sub-process
-            blocking = not allowIndependent
             #blocking |= sys.platform == 'win32'
             if blocking:
                 self.hide()

@@ -168,6 +168,7 @@ class testPyMcaBatch(TestCaseQt):
         self._assertEqualFitResults(result1, result2, rtol=1e-5)
 
     def _assertSlowFitMap(self, typ):
+        # TODO: test roifit
         info = self._generateData(typ=typ)
         # Compare with legacy PyMcaBatch
         result1 = self._fitMap(info, outputdir='fitresults1')
@@ -175,6 +176,7 @@ class testPyMcaBatch(TestCaseQt):
         self._assertEqualFitResults(result1, result2, rtol=1e-5)
 
     def _assertSlowMultiFitMap(self, typ):
+        # TODO: test roifit
         from PyMca5.PyMcaGui.pymca.PyMcaBatch import ranAsBootstrap
         info = self._generateData(typ=typ)
         # Compare single vs. multi processing
@@ -182,7 +184,8 @@ class testPyMcaBatch(TestCaseQt):
         result2 = self._fitMap(info, nBatches=1, outputdir='fitresults2')
         self._assertEqualFitResults(result1, result2, rtol=0)
         if not ranAsBootstrap() and typ != 'hdf5':
-            # TODO: hdf5 selection without user interaction in legacy code
+            # REMARK: hdf5 selection without user interaction 
+            #         not supported by in legacy code
             # Compare legacy single vs. multi processing
             result3 = self._fitMap(info, nBatches=4, legacy=True, outputdir='fitresults3')
             result4 = self._fitMap(info, nBatches=1, legacy=True, outputdir='fitresults4')
@@ -190,18 +193,24 @@ class testPyMcaBatch(TestCaseQt):
             # Compare with legacy PyMcaBatch
             self._assertEqualFitResults(result1, result3, rtol=1e-5)
             self._assertEqualFitResults(result2, result4, rtol=1e-5)
+        # Compare thread vs. subprocess
+        result5 = self._fitMap(info, nBatches=1, asthread=True, outputdir='fitresults5')
+        self._assertEqualFitResults(result2, result5, rtol=0)
+        # Compare blocking vs. non-blocking subprocess
+        result6 = self._fitMap(info, nBatches=1, blocking=True, outputdir='fitresults6')
+        self._assertEqualFitResults(result2, result6, rtol=0)
 
     def _fitMap(self, info, fast=False, nBatches=0,
                 outputdir='fitresults', **kwargs):
         outputdir = os.path.join(self.path, outputdir)
         if fast:
-            # Single process fast fitting
+            # Single process fast fitting (FastXRFLinearFit)
             imageFile = self._fastFitMap(info, outputdir, **kwargs)
         elif not nBatches:
-            # Single process slow fitting
+            # Single process slow fitting (McaAdvancedFitBatch)
             imageFile = self._slowFitMap(info, outputdir, **kwargs)
         else:
-            # Multi process slow fitting
+            # Multi process slow fitting (PyMcaBatch)
             imageFile = self._slowMultiFitMap(info, outputdir,
                                               nBatches, **kwargs)
         # Validate result
@@ -259,7 +268,8 @@ class testPyMcaBatch(TestCaseQt):
         batch.processList()
         return self._imageFile(info['input'], outputdir, legacy=legacy)
 
-    def _slowMultiFitMap(self, info, outputdir, nBatches, legacy=False):
+    def _slowMultiFitMap(self, info, outputdir, nBatches, legacy=False,
+                         **startargs):
         """
         Multi process slow fitting
         """
@@ -289,12 +299,14 @@ class testPyMcaBatch(TestCaseQt):
             widget._McaBatchGUI__splitSpin.setValue(max(nBatches, 1))
         #widget.show()
         self.qapp.processEvents()
-        widget.start()
+        widget.start(**startargs)
 
         # Wait until result is created
         from time import sleep
+        msg = 'Waiting for {} ...'.format(imageFile)
         while not os.path.exists(imageFile):
-            sleep(1)
+            sleep(3)
+            print(msg)
             self.qapp.processEvents()
         
         # Wait until result is finished writting
@@ -458,6 +470,7 @@ class testPyMcaBatch(TestCaseQt):
                 param = param/liveTimeCorrection
                 # TODO: why rounding errors?
                 rtol = 1e-5
+                continue
             else:
                 # Same spectrum in each pixel so fitted parameters
                 # should have the same value in each pixel
