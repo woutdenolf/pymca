@@ -1,6 +1,8 @@
-language: python
+
 dist: xenial
 sudo: required
+
+language: python
 
 matrix:
     include:
@@ -53,9 +55,8 @@ before_install:
     - if [ "$TRAVIS_OS_NAME" == "linux" ];
       then
           export DISPLAY=:99.0;
-          sudo chmod u+s /usr/bin/Xorg;
           ls -l /dev/tty0;
-          Xorg -noreset +extension GLX +extension RANDR +extension RENDER -logfile ./99.log -config ./ci/travis_xorg.conf :99 &
+          sudo Xorg -noreset +extension GLX +extension RANDR +extension RENDER -logfile ./99.log -config ./ci/travis_xorg.conf :99 &
           sleep 3;
           cat ./99.log;
           ls -l /dev/tty0;
