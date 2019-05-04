@@ -1,6 +1,3 @@
-
-dist: xenial
-
 language: python
 
 matrix:
@@ -40,6 +37,7 @@ addons:
             - libegl1-mesa  # Required by Qt xcb platform plugin
             - libgl1-mesa-glx  # For OpenGL
             - xserver-xorg-video-dummy  # For OpenGL
+            - libmesa-dev  # For OpenGL
             - libxkbcommon-x11-0 # needed for Qt plugins
             - libxkbcommon0
             - libxkbcommon-dev
