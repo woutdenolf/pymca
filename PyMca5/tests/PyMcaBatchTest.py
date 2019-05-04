@@ -165,14 +165,14 @@ class testPyMcaBatch(TestCaseQt):
         # Compare with legacy PyMcaBatch
         result1 = self._fitMap(info, fast=True, outputdir='fitresults1')
         result2 = self._fitMap(info, fast=True, legacy=True, outputdir='fitresults2')
-        self._compareFitResults(result1, result2, rtol=1e-5)
+        self._assertEqualFitResults(result1, result2, rtol=1e-5)
 
     def _assertSlowFitMap(self, typ):
         info = self._generateData(typ=typ)
         # Compare with legacy PyMcaBatch
         result1 = self._fitMap(info, outputdir='fitresults1')
         result2 = self._fitMap(info, legacy=True, outputdir='fitresults2')
-        self._compareFitResults(result1, result2, rtol=1e-5)
+        self._assertEqualFitResults(result1, result2, rtol=1e-5)
 
     def _assertSlowMultiFitMap(self, typ):
         from PyMca5.PyMcaGui.pymca.PyMcaBatch import ranAsBootstrap
@@ -180,16 +180,16 @@ class testPyMcaBatch(TestCaseQt):
         # Compare single vs. multi processing
         result1 = self._fitMap(info, nBatches=4, outputdir='fitresults1')
         result2 = self._fitMap(info, nBatches=1, outputdir='fitresults2')
-        self._compareFitResults(result1, result2, rtol=0)
+        self._assertEqualFitResults(result1, result2, rtol=0)
         if not ranAsBootstrap() and typ != 'hdf5':
             # TODO: hdf5 selection without user interaction in legacy code
             # Compare legacy single vs. multi processing
             result3 = self._fitMap(info, nBatches=4, legacy=True, outputdir='fitresults3')
             result4 = self._fitMap(info, nBatches=1, legacy=True, outputdir='fitresults4')
-            self._compareFitResults(result3, result4, rtol=0)
+            self._assertEqualFitResults(result3, result4, rtol=0)
             # Compare with legacy PyMcaBatch
-            self._compareFitResults(result1, result3, rtol=1e-5)
-            self._compareFitResults(result2, result4, rtol=1e-5)
+            self._assertEqualFitResults(result1, result3, rtol=1e-5)
+            self._assertEqualFitResults(result2, result4, rtol=1e-5)
 
     def _fitMap(self, info, fast=False, nBatches=0,
                 outputdir='fitresults', **kwargs):
@@ -207,7 +207,7 @@ class testPyMcaBatch(TestCaseQt):
         # Validate result
         labels, scanData = self._parseDatResults(imageFile)
         self._checkFitResult(labels, scanData, info['liveTimeCorrection'],
-                             multiprocessing=nBatches > 1)
+                             multiprocessing=nBatches > 1, fast=fast)
         return labels, scanData
 
     def _fastFitMap(self, info, outputdir, legacy=False):
@@ -295,6 +295,7 @@ class testPyMcaBatch(TestCaseQt):
         from time import sleep
         while not os.path.exists(imageFile):
             sleep(1)
+            print(imageFile)
             self.qapp.processEvents()
         
         # Wait until result is finished writting
@@ -391,7 +392,7 @@ class testPyMcaBatch(TestCaseQt):
         info['cfgname'] = os.path.join(self.path, 'Map.cfg')
         return info
 
-    def _compareFitResults(self, result1, result2, rtol=0, atol=0):
+    def _assertEqualFitResults(self, result1, result2, rtol=0, atol=0):
         labels1, scanData1 = result1
         labels2, scanData2 = result2
         self.assertEqual(set(labels1), set(labels2))
@@ -436,7 +437,7 @@ class testPyMcaBatch(TestCaseQt):
         return labels, scanData
 
     def _checkFitResult(self, labels, paramStack, liveTimeCorrection,
-                        multiprocessing=False):
+                        multiprocessing=False, fast=False):
         """
         Validate fit result
 
@@ -444,6 +445,7 @@ class testPyMcaBatch(TestCaseQt):
         :param ndarray paramStack: nParams x nRows x nColumns
         :param ndarray liveTimeCorrection: nRows x nColumns
         :param bool multiprocessing: merged result of multiple processes
+        :param bool fast: result of fast processing
         """
         nParams, nRows, nColumns = paramStack.shape
         self.assertTrue((nRows, nColumns), liveTimeCorrection.shape)
@@ -455,17 +457,12 @@ class testPyMcaBatch(TestCaseQt):
                 # This means peak areas are the same but concentrations
                 # are corrected for this live time.
                 param = param/liveTimeCorrection
-                if multiprocessing:
-                    # TODO: pretty bad!!!
-                    rtol = 1e-3
-                else:
-                    rtol = 1e-5
+                # TODO: why rounding errors?
+                rtol = 1e-5
             else:
-                # Same spectrum in each pixel
-                if multiprocessing:
-                    rtol = 1e-4
-                else:
-                    rtol = 0
+                # Same spectrum in each pixel so fitted parameters
+                # should have the same value in each pixel
+                rtol = 0
             numpy.testing.assert_allclose(param, param[0, 0], err_msg=label,
                                           rtol=rtol, atol=0)
 
