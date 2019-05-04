@@ -1324,6 +1324,7 @@ class McaBatchGUI(qt.QWidget):
         """
         cmd = str(cmd)
         _logger.info("COMMAND = %s", cmd)
+        print(cmd)
         try:
             subprocess.call(cmd)
         except UnicodeEncodeError:

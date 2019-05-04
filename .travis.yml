@@ -1,3 +1,5 @@
+dist: xenial
+
 language: python
 
 matrix:
@@ -34,13 +36,7 @@ cache:
 addons:
     apt:
         packages:
-            - libegl1-mesa  # Required by Qt xcb platform plugin
-            - libgl1-mesa-glx  # For OpenGL
-            - xserver-xorg-video-dummy  # For OpenGL
-            - libmesa-dev  # For OpenGL
-            - libxkbcommon-x11-0 # needed for Qt plugins
-            - libxkbcommon0
-            - libxkbcommon-dev
+            - libgl1-mesa-dev  # For OpenGL
 
 services:
     - xvfb
@@ -49,18 +45,7 @@ before_install:
     # On MacOS: install python3 if needed
     - source ./ci/travis_osx.sh
 
-    # Start X server with dummy video dirver
-    # Use this instead of Xvfb to have RANDR extension
-    # Otherwise there is a bug with Qt5.10.0
-    - if [ "$TRAVIS_OS_NAME" == "llinux" ];
-      then
-          export DISPLAY=:99.0;
-          ls -l /dev/tty0;
-          sudo Xorg -noreset +extension GLX +extension RANDR +extension RENDER -logfile ./99.log -config ./ci/travis_xorg.conf :99 &
-          sleep 3;
-          cat ./99.log;
-          ls -l /dev/tty0;
-      fi
+    # X server
     - if [ "$TRAVIS_OS_NAME" == "linux" ];
       then
           export DISPLAY=:99.0;
