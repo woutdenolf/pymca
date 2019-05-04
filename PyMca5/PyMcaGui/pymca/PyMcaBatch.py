@@ -1116,15 +1116,19 @@ class McaBatchGUI(qt.QWidget):
 
         wname = "Batch from %s to %s " % (os.path.basename(self.fileList[ 0]),
                                           os.path.basename(self.fileList[-1]))
-        if cmd.roifit:
-            self._runAsThread(cmd, wname)
-        elif (sys.platform == 'darwin') and\
-             ((".app" in os.path.dirname(__file__)) or (not self.__splitBox.isChecked())):
-            self._runAsThread(cmd, wname)
+        bthread = cmd.roifit
+        multiprocess = self.__splitBox.isChecked()
+        bthread |= sys.platform == 'darwin' and\
+                   ((".app" in os.path.dirname(__file__)) or (not multiprocess))
+        if bthread:
+            self._runInThread(cmd, wname)
         else:
-            self._runAsProcess(cmd, allowIndependent=allowIndependent)
+            self._runInProcess(cmd, allowIndependent=allowIndependent)
 
-    def _runAsThread(self, cmd, wname):
+    def _runInThread(self, cmd, wname):
+        """
+        Run `cmd` in one thread
+        """
         kwargs = cmd.getOptions('outdir', 'html', 'htmlindex', 'table')
         kwargs['outputdir'] = kwargs.pop('outdir')
         window = McaBatchWindow(name=wname, actions=1,
@@ -1137,7 +1141,10 @@ class McaBatchGUI(qt.QWidget):
         self.__window = window
         self.__thread = thread
     
-    def _runAsProcess(self, cmd, allowIndependent=True):
+    def _runInProcess(self, cmd, allowIndependent=True):
+        """
+        Run `cmd` in one of more processes
+        """
         cmd.addOption('debug', value=_logger.getEffectiveLevel() == logging.DEBUG, format="{:d}")
         cmd.addOption('exitonend', value=1, format="{:d}")
         cmd.addOption('showresult', value=self._showResult, format="{:d}")
@@ -1159,30 +1166,26 @@ class McaBatchGUI(qt.QWidget):
         else:
             cmd.addOption("cfg", value=self.configFile)
 
-        # Run 'cmd'
+        # Launch process(es)
         multiprocess = self.__splitBox.isChecked()
-        if sys.platform == 'win32':
+        if multiprocess:
+            # Run in multiple sub-processes
             self.hide()
             qApp = qt.QApplication.instance()
             qApp.processEvents()
-            if multiprocess or not allowIndependent:
-                # Run in multiple sub-processes
-                self._runAsSubProcesses(cmd)
-            else:
-                # Run in one sub-process
-                self._runAsSubProcess(cmd)
+            self._runInSubProcesses(cmd)
             self.show()
         else:
-            if multiprocess or not allowIndependent:
-                # Run in multiple sub-processes
+            # Run in one sub-process
+            blocking = not allowIndependent
+            #blocking |= sys.platform == 'win32'
+            if blocking:
                 self.hide()
                 qApp = qt.QApplication.instance()
                 qApp.processEvents()
-                self._runAsSubProcesses(cmd)
+            self._runInSubProcess(cmd, blocking=blocking)
+            if blocking:
                 self.show()
-            else:
-                # Run in one independent process
-                self._runAsIndependentProcess(cmd)
 
     def _processToolsInit(self, cmd):
         """
@@ -1251,9 +1254,9 @@ class McaBatchGUI(qt.QWidget):
             # directory level with executables
         return rootdir, frozen
 
-    def _runAsSubProcesses(self, cmd):
+    def _runInSubProcesses(self, cmd):
         """
-        Run 'cmd' is several batches
+        Divide `cmd` over several subprocesses (non-blocking call)
         """
         processList = []
         if self.__splitBox.isChecked():
@@ -1298,7 +1301,19 @@ class McaBatchGUI(qt.QWidget):
                     p = subprocess.Popen(cmd.encode('latin-1'), **kwargs)
         processList.append(p)
 
-    def _runAsSubProcess(self, cmd):
+    def _runInSubProcess(self, cmd, blocking=False):
+        """
+        Run `cmd` in one subprocess
+        """
+        if blocking:
+            self._runInSubProcessBlocking(cmd)
+        else:
+            self._runInSubProcessNonBlocking(cmd)
+
+    def _runInSubProcessBlocking(self, cmd):
+        """
+        Run `cmd` in one subprocess (blocking call)
+        """
         cmd = str(cmd)
         _logger.info("COMMAND = %s", cmd)
         try:
@@ -1314,10 +1329,17 @@ class McaBatchGUI(qt.QWidget):
                 except UnicodeEncodeError:
                     subprocess.call(cmd.encode('latin-1'))
 
-    def _runAsIndependentProcess(self, cmd):
+    def _runInSubProcessNonBlocking(self, cmd):
+        """
+        Run `cmd` in one background process (non-blocking call)
+        """
         cmd = str(cmd)
         _logger.info("COMMAND = %s", cmd)
-        os.system("{} &".format(cmd))
+        if sys.platform == 'win32':
+            cmd = "START /B {}".format(cmd)
+        else:
+            cmd = "{} &".format(cmd)
+        os.system(cmd)
         msg = qt.QMessageBox(self)
         msg.setIcon(qt.QMessageBox.Information)
         text = "Your batch has been started as an independent process."
