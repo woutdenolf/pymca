@@ -145,6 +145,7 @@ class testPyMcaBatch(TestCaseQt):
     def testSlowFitEdfMap(self):
         self._assertSlowFitMap('edf')
 
+    @unittest.skipIf(sys.platform == 'darwin', "does not work on mac")
     def testSlowMultiFitEdfMap(self):
         self._assertSlowMultiFitMap('edf')
 
@@ -157,6 +158,7 @@ class testPyMcaBatch(TestCaseQt):
         self._assertSlowFitMap('hdf5')
     
     @unittest.skipIf(not HAS_H5PY, "skipped h5py missing")
+    @unittest.skipIf(sys.platform == 'darwin', "does not work on mac")
     def testSlowMultiFitHdf5Map(self):
         self._assertSlowMultiFitMap('hdf5')
 
