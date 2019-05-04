@@ -37,6 +37,7 @@ import numpy
 from random import randint
 import tempfile
 import shutil
+import logging
 from PyMca5.tests import XrfData
 import PyMca5.PyMcaGui.PyMcaQt as qt
 from PyMca5.PyMcaGui.misc.testutils import TestCaseQt
@@ -45,6 +46,9 @@ try:
     HAS_H5PY = True
 except ImportError:
     HAS_H5PY = False
+
+
+_logger = logging.getLogger(__name__)
 
 
 class testPyMcaBatch(TestCaseQt):
@@ -56,11 +60,6 @@ class testPyMcaBatch(TestCaseQt):
     def tearDown(self):
         shutil.rmtree(self.path)
         super(testPyMcaBatch, self).tearDown()
-
-    def _checkForUnreleasedWidgets(self):
-        # A simple import already creates widgets:
-        #from PyMca5.PyMcaGui.pymca import PyMcaBatch
-        pass
 
     def testCommand(self):
         from PyMca5.PyMcaGui.pymca import PyMcaBatch
@@ -308,9 +307,11 @@ class testPyMcaBatch(TestCaseQt):
         msg = 'Waiting for {} ...'.format(imageFile)
         while not os.path.exists(imageFile):
             sleep(3)
-            print(msg)
+            if msg:
+                _logger.info(msg)
+                msg = ''
             self.qapp.processEvents()
-        
+
         # Wait until result is finished writting
         bytes0 = os.stat(imageFile).st_size
         while True:
@@ -321,6 +322,8 @@ class testPyMcaBatch(TestCaseQt):
             else:
                 bytes0 = bytes1
         
+        _logger.info('Finished {}'.format(imageFile))
+
         widget.close()
         self.qapp.processEvents()
         #self.qapp.exec_()

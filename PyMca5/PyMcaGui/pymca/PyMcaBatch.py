@@ -1303,8 +1303,6 @@ class McaBatchGUI(qt.QWidget):
         :param bool blocking: wait for finish or not
         :param processList: implies non-blocking when a list
         """
-        cmd = str(cmd)
-        _logger.info("COMMAND = %s", cmd)
         if processList is not None:
             p = self._launchSubProcess(cmd, blocking=False)
             processList.append(p)
@@ -1327,22 +1325,26 @@ class McaBatchGUI(qt.QWidget):
         """
         Run `cmd` in one subprocess
 
-        :param str cmd:
+        :param Command cmd:
         :param bool blocking: wait for finish or not
         :param bool background: implies non-blocking
         :returns: process handle when non-blocking
                   None when blocking or in background
         """
+        cmd = str(cmd)
         kwargs = {}
         if blocking:
+            _logger.info("BLOCKING PROCESS = %s", cmd)
             func = subprocess.call
         elif background:
+            _logger.info("BACKGROUND PROCESS = %s", cmd)
             if sys.platform == 'win32':
                 cmd = "START /B {}".format(cmd)
             else:
                 cmd = "{} &".format(cmd)
             func = os.system
         else:
+            _logger.info("NON-BLOCKING PROCESS = %s", cmd)
             func = subprocess.Popen
             kwargs['cwd'] = os.getcwd()
         if sys.platform != 'win32' and not background:
