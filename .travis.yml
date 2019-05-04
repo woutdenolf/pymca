@@ -1,5 +1,5 @@
-sudo: required
 language: python
+sudo: required
 
 matrix:
     include:
@@ -52,7 +52,6 @@ before_install:
     - if [ "$TRAVIS_OS_NAME" == "linux" ];
       then
           export DISPLAY=:99.0;
-          #chmod u+s /usr/bin/Xorg;
           Xorg -noreset +extension GLX +extension RANDR +extension RENDER -logfile ./99.log -config ./ci/travis_xorg.conf :99 &
           sleep 3;
           cat ./99.log;
@@ -60,7 +59,6 @@ before_install:
     - QT_DEBUG_PLUGINS=1
 
 install:
-
     # Upgrade distribution modules
     - python -m pip install --upgrade pip
     - pip install --upgrade setuptools
