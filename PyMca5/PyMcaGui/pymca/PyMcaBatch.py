@@ -35,6 +35,7 @@ import subprocess
 import signal
 import atexit
 import logging
+from glob import glob
 from contextlib import contextmanager
 try:
     from collections.abc import MutableMapping
@@ -88,7 +89,6 @@ def moduleRunCmd(modulePath):
 
 
 def ranAsBootstrap():
-    sysExecutable = sys.executable
     bootstrap = os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..', 'bootstrap.py')
     bootstrap = os.path.abspath(bootstrap)
     return os.path.isfile(bootstrap)
@@ -201,7 +201,7 @@ class Command(MutableMapping):
         return len(self._options)
 
 
-def toolsInfo():
+def toolInfo():
     """
     :returns 2-tuple: rootdir(str): directory of executables or GUI launch scripts
                         frozen(bool): run as frozen executable
@@ -238,12 +238,12 @@ def toolsInfo():
     return rootdir, frozen
 
 
-def toolsPath(toolname):
+def toolPath(toolname):
     """
     :params str toolname: e.g. PyMcaBatch
     :returns str: e.g. /users/denolf/.local/bin/pymca
     """
-    rootdir, frozen = toolsInfo()
+    rootdir, frozen = toolInfo()
     if frozen:
         toolname = toolname.lower()
         if sys.platform == 'win32':
@@ -263,7 +263,7 @@ def toolsPath(toolname):
 
 
 def noProcesses():
-    _, forzen = toolsInfo()
+    _, forzen = toolInfo()
     forzenDarwin = sys.platform == 'darwin' and forzen
     return forzenDarwin
 
@@ -1352,7 +1352,7 @@ class McaBatchGUI(qt.QWidget):
         """
         cmd.addOption('debug', value=_logger.getEffectiveLevel() == logging.DEBUG, format="{:d}")
         cmd.addOption('exitonend', value=1, format="{:d}")
-        cmd.addOption('showresult', value=self._showResult, format="{:d}")
+        cmd.addOption('showresult', value=0, format="{:d}")
 
         # Prepare tools (executables or python scripts) for processing/viewing
         if not self._processToolsInit(cmd):
@@ -1374,14 +1374,19 @@ class McaBatchGUI(qt.QWidget):
         # Launch process(es)
         monitored = self._runAsMultiProcess or not blocking
         if monitored:
+            # Dependent (monitored) processes
+            # REMARK: _pollProcessList will
+            #   - show the result
+            #   - show the PyMcaBatch window
+            cmd.showresult = 0
             self.hide()
             qApp = qt.QApplication.instance()
             qApp.processEvents()
             self._runInProcessMonitored(cmd)
-            # self.show() when finished (see _pollProcessList)
         else:
             # Blocking or independent (unmonitored) process
             # REMARK: currently a non-blocking is always monitored (see above)
+            cmd.showresult = self._showResult
             if blocking:
                 self.hide()
                 qApp = qt.QApplication.instance()
@@ -1396,16 +1401,17 @@ class McaBatchGUI(qt.QWidget):
 
         :param Command cmd:
         """
-        myself = toolsPath('PyMcaBatch')
+        myself = toolPath('PyMcaBatch')
         if not myself:
             text = 'Cannot locate PyMcaBatch.\n'
             qt.QMessageBox.critical(self, "ERROR",text)
             self.raise_()
             return False
-        #viewer = toolsPath('EdfFileSimpleViewer')
-        rgb = toolsPath('PyMcaPostBatch')
         cmd.setCommand(myself)
-        self._rgb = rgb
+        self._rgb = toolPath('PyMcaPostBatch')
+        # REMARK: viewer is currently not launched
+        #         as an independent process (see _showProcessResults)
+        #viewer = toolPath('EdfFileSimpleViewer')
         return True
 
     def _runInProcessMonitored(self, cmd):
@@ -1499,25 +1505,33 @@ class McaBatchGUI(qt.QWidget):
             self.raiseW()
         else:
             self.raise_()
-        if len(processList) > 1:
-            args = self._mergeProcessResults()
-            if self._showResult:
-                try:
-                    self._showProcessResults(*args)
-                except:
-                    _logger.error("Failed plotting result (probably interrupted by the user)")
+        edfoutlist, datoutlist = self._mergeProcessResults()
+        if not edfoutlist and not datoutlist:
+            edfoutlist, datoutlist = self._fetchProcessResults()
+        if self._showResult:
+            try:
+                self._showProcessResults(edfoutlist, datoutlist)
+            except:
+                _logger.error("Failed plotting result (probably interrupted by the user)")
 
     def _mergeProcessResults(self):
         _logger.info('Merging multi-process results...')
         work = PyMcaBatchBuildOutput.PyMcaBatchBuildOutput(inputdir=self.outputDir)
         delete = _logger.getEffectiveLevel() != logging.DEBUG
-        edfoutlist, datoutlist, h5outlist = work.buildOutput(delete=delete)
-        subdir = McaAdvancedFitBatch.getRootName(self.fileList)
-        inputdir = os.path.join(self.outputDir, subdir)
-        edfoutlist2, datoutlist2, h5outlist2 = work.buildOutput(inputdir=inputdir, delete=delete)
+        root = McaAdvancedFitBatch.getRootName(self.fileList)
+        edfoutlist, datoutlist, h5outlist = work.buildOutput(root=root, delete=delete)
+        inputdir = os.path.join(self.outputDir, root)
+        edfoutlist2, datoutlist2, h5outlist2 = work.buildOutput(root=root, inputdir=inputdir, delete=delete)
         edfoutlist += edfoutlist2
         datoutlist += datoutlist2
         _logger.info('Finished merging multi-process results.')
+        return edfoutlist, datoutlist
+
+    def _fetchProcessResults(self):
+        root = McaAdvancedFitBatch.getRootName(self.fileList)
+        inputdir = os.path.join(self.outputDir, root)
+        edfoutlist = glob(os.path.join(inputdir, root+'*.edf'))
+        datoutlist = glob(os.path.join(inputdir, root+'*.dat'))
         return edfoutlist, datoutlist
 
     def _showProcessResults(self, edfoutlist, datoutlist):
@@ -1954,6 +1968,9 @@ class McaBatchWindow(qt.QWidget):
 
     def plotImages(self,imagelist):
         if noProcesses():
+            if self.exitonend:
+                # Do not start because we exit anyway
+                return
             self.__viewer = EdfFileSimpleViewer.EdfFileSimpleViewer()
             self.__viewer.setFileList(imagelist)
             self.__viewer.show()
@@ -1961,7 +1978,7 @@ class McaBatchWindow(qt.QWidget):
             filelist = " "
             for ffile in imagelist:
                 filelist+=" %s" % ffile
-            viewer = toolsPath('EdfFileSimpleViewer')
+            viewer = toolPath('EdfFileSimpleViewer')
             cmd = "%s %s" % (viewer, filelist)
             launchProcess(cmd, independent=True)
             
