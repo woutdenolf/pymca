@@ -245,7 +245,6 @@ def toolPath(toolname):
     """
     rootdir, frozen = toolInfo()
     if frozen:
-        toolname = toolname.lower()
         if sys.platform == 'win32':
             toolname += '.exe'
         tool = os.path.join(rootdir, toolname)
