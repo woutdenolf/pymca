@@ -1517,20 +1517,20 @@ class McaBatchGUI(qt.QWidget):
         _logger.info('Merging multi-process results...')
         work = PyMcaBatchBuildOutput.PyMcaBatchBuildOutput(inputdir=self.outputDir)
         delete = _logger.getEffectiveLevel() != logging.DEBUG
-        root = McaAdvancedFitBatch.getRootName(self.fileList)
-        edfoutlist, datoutlist, h5outlist = work.buildOutput(root=root, delete=delete)
-        inputdir = os.path.join(self.outputDir, root)
-        edfoutlist2, datoutlist2, h5outlist2 = work.buildOutput(root=root, inputdir=inputdir, delete=delete)
+        basename = McaAdvancedFitBatch.getRootName(self.fileList)
+        edfoutlist, datoutlist, h5outlist = work.buildOutput(basename=basename, delete=delete)
+        inputdir = os.path.join(self.outputDir, basename)
+        edfoutlist2, datoutlist2, h5outlist2 = work.buildOutput(basename=basename, inputdir=inputdir, delete=delete)
         edfoutlist += edfoutlist2
         datoutlist += datoutlist2
         _logger.info('Finished merging multi-process results.')
         return edfoutlist, datoutlist
 
     def _fetchProcessResults(self):
-        root = McaAdvancedFitBatch.getRootName(self.fileList)
-        inputdir = os.path.join(self.outputDir, root)
-        edfoutlist = glob(os.path.join(inputdir, root+'*.edf'))
-        datoutlist = glob(os.path.join(inputdir, root+'*.dat'))
+        basename = McaAdvancedFitBatch.getRootName(self.fileList)
+        inputdir = os.path.join(self.outputDir, basename)
+        edfoutlist = glob(os.path.join(inputdir, basename+'*.edf'))
+        datoutlist = glob(os.path.join(inputdir, basename+'*.dat'))
         return edfoutlist, datoutlist
 
     def _showProcessResults(self, edfoutlist, datoutlist):
