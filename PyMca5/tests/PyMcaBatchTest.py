@@ -165,7 +165,7 @@ class testPyMcaBatch(TestCaseQt):
         self._assertSlowFitMap('specmesh', roiwidth=100, outputdir='fitresulta')
         self._assertSlowGuiFitMap('specmesh', roiwidth=100, outputdir='fitresultb')
 
-    #@unittest.skipIf(sys.platform == 'darwin', "fails sometimes on mac")
+    @unittest.skipIf(sys.platform == 'darwin', "fails sometimes on mac")
     def testSlowMultiFitSpecMap(self):
         self._assertSlowMultiFitMap('specmesh')
 
