@@ -35,8 +35,6 @@ import unittest
 import numpy
 from PyMca5.tests import SimpleModel
 
-# from PyMca5.PyMcaMisc.ProfilingUtils import profile
-
 
 def with_model(nmodels):
     def inner1(method):
@@ -76,8 +74,7 @@ class testFitModel(unittest.TestCase):
             self._init_random(self.fitmodel, **kw)
 
     def _init_random(self, model, npeaks=10, nchannels=2048, border=0.1):
-        """Peaks close to the border will cause the nlls to fail
-        """
+        """Peaks close to the border will cause the nlls to fail"""
         self.nnonglobals = 4  # zero, gain, wzero, wgain
         self.nglobals = npeaks  # concentrations
         model.xdata_raw = numpy.arange(nchannels)
@@ -205,10 +202,12 @@ class testFitModel(unittest.TestCase):
         self.fitmodel.linear = True
         expected = self.fitmodel.linear_parameters.copy()
         self.modify_random(only_linear=True)
+
         result = self.fitmodel.fit()
         self.assert_result(result, expected)
         assert not numpy.allclose(self.fitmodel.ydata, self.fitmodel.ymodel)
         assert not numpy.allclose(self.fitmodel.linear_parameters, expected)
+
         self.fitmodel.use_fit_result(result)
         numpy.testing.assert_allclose(self.fitmodel.ydata, self.fitmodel.ymodel)
         numpy.testing.assert_allclose(self.fitmodel.linear_parameters, expected)
@@ -226,18 +225,25 @@ class testFitModel(unittest.TestCase):
         expected1 = self.fitmodel.parameters.copy()
         expected2 = self.fitmodel.linear_parameters.copy()
         self.modify_random(only_linear=False)
+
+        # from PyMca5.PyMcaMisc.ProfilingUtils import profile
         # with profile(memory=False, filename="testNonLinearFit.pyprof"):
         result = self.fitmodel.fit(full_output=True)
+
         # TODO: non-linear parameters not precise
         # self.assert_result(result, expected1)
         assert not numpy.allclose(self.fitmodel.ydata, self.fitmodel.ymodel)
         assert not numpy.allclose(self.fitmodel.parameters, expected1)
         assert not numpy.allclose(self.fitmodel.linear_parameters, expected2)
+
         self.fitmodel.use_fit_result(result)
+        # self.plot()
         self.assert_ymodel()
         # TODO: non-linear parameters not precise
         # numpy.testing.assert_allclose(self.fitmodel.parameters, expected1)
-        numpy.testing.assert_allclose(self.fitmodel.linear_parameters, expected2)
+        numpy.testing.assert_allclose(
+            self.fitmodel.linear_parameters, expected2, rtol=1e-6
+        )
 
     def assert_result(self, result, expected):
         p = numpy.asarray(result["parameters"])
@@ -255,7 +261,7 @@ class testFitModel(unittest.TestCase):
 
     @with_model(8)
     def testParameterIndex(self):
-        # Test parameter index conversion from concatenated to model to model
+        # Test parameter index conversion from concatenated model to single model
         nmodels = self.fitmodel.nmodels
         nglobals = self.nglobals
         for linear in [False, True]:

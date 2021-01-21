@@ -88,8 +88,7 @@ class Cashed(object):
 
 
 class Model(Cashed):
-    """Evaluation and derivatives of a model to be used in least-squares fitting.
-    """
+    """Evaluation and derivatives of a model to be used in least-squares fitting."""
 
     def __init__(self):
         self.included_parameters = None
@@ -169,14 +168,28 @@ class Model(Cashed):
         :param bool linear_only:
         :returns array:
         """
-        return NotImplementedError
+        i = 0
+        if linear_only:
+            params = numpy.zeros(self.nlinear_parameters)
+        else:
+            params = numpy.zeros(self.nparameters)
+        for name, n in self._parameter_groups(linear_only=linear_only):
+            params[i : i + n] = getattr(self, name)
+            i += n
+        return params
 
-    def _set_parameters(self, values, linear_only=False):
+    def _set_parameters(self, params, linear_only=False):
         """
         :returns values:
         :param bool linear_only:
         """
-        return NotImplementedError
+        i = 0
+        for name, n in self._parameter_groups(linear_only=linear_only):
+            if n > 1:
+                getattr(self, name)[:] = params[i : i + n]
+            else:
+                setattr(self, name, params[i])
+            i += n
 
     def _filter_parameter_names(self, names):
         included = self.included_parameters
@@ -313,11 +326,20 @@ class Model(Cashed):
         :param bool full_output: add statistics to fitted parameters
         :returns dict:
         """
-        A = self.linear_derivatives().T  # nchannels, npeaks
-        b = self.ydata  # nchannels
-        result = lstsq(A, b, digested_output=full_output)
-        if not full_output:
-            result = {"parameters": result[0], "uncertainties": result[1]}
+        if self.niter_non_leastsquares:
+            initial = self.linear_parameters
+        try:
+            for i in range(max(self.niter_non_leastsquares, 1)):
+                A = self.linear_derivatives().T  # nchannels, npeaks
+                b = self.ydata  # nchannels
+                result = lstsq(A, b, digested_output=full_output)
+                if self.niter_non_leastsquares:
+                    self.linear_parameters = result[0]
+                    self.non_leastsquares_increment()
+        finally:
+            if self.niter_non_leastsquares:
+                self.linear_parameters = initial
+        result = {"linear": True, "parameters": result[0], "uncertainties": result[1]}
         return result
 
     @enable_caching
@@ -328,18 +350,23 @@ class Model(Cashed):
         """
         initial = self.parameters
         try:
-            result = Gefit.LeastSquaresFit(
-                self._evaluate,
-                initial,
-                model_deriv=self._derivative,
-                xdata=self.xdata,
-                ydata=self.ydata,
-                sigmadata=self.ystd,
-                fulloutput=full_output,
-            )
+            for i in range(max(self.niter_non_leastsquares, 1)):
+                result = Gefit.LeastSquaresFit(
+                    self._evaluate,
+                    initial,
+                    model_deriv=self._derivative,
+                    xdata=self.xdata,
+                    ydata=self.ydata,
+                    sigmadata=self.ystd,
+                    fulloutput=full_output,
+                )
+                if self.niter_non_leastsquares:
+                    self.parameters = result[0]
+                    self.non_leastsquares_increment()
         finally:
             self.parameters = initial
         ret = {
+            "linear": False,
             "parameters": result[0],
             "uncertainties": result[2],
             "chi2_red": result[1],
@@ -374,15 +401,21 @@ class Model(Cashed):
         """
         :param dict result:
         """
-        if self.linear:
+        if result["linear"]:
             self.linear_parameters = result["parameters"]
         else:
             self.parameters = result["parameters"]
 
+    @property
+    def niter_non_leastsquares(self):
+        return 0
+
+    def non_leastsquares_increment(self):
+        raise NotImplementedError
+
 
 class ConcatModel(Model):
-    """Concatenated model with shared parameters
-    """
+    """Concatenated model with shared parameters"""
 
     def __init__(self, models, shared_attributes=None):
         if not isinstance(models, Sequence):
@@ -401,20 +434,17 @@ class ConcatModel(Model):
 
     @property
     def model(self):
-        """Model used to get/set shared attributes
-        """
+        """Model used to get/set shared attributes"""
         return self._models[0]
 
     def __getattr__(self, name):
-        """Get shared attribute
-        """
+        """Get shared attribute"""
         if self.nmodels and name in self.shared_attributes:
             return getattr(self.model, name)
         raise AttributeError(name)
 
     def __setattr__(self, name, value):
-        """Set shared attribute
-        """
+        """Set shared attribute"""
         if (
             name != "_models"
             and self.nmodels
@@ -428,8 +458,7 @@ class ConcatModel(Model):
 
     @property
     def shared_attributes(self):
-        """Attributes shared between the fit models (they should have the same value)
-        """
+        """Attributes shared between the fit models (they should have the same value)"""
         return self._shared_attributes
 
     @shared_attributes.setter

@@ -38,8 +38,7 @@ from PyMca5.PyMcaMath.fitting.Model import Model, ConcatModel
 
 
 class SimpleModel(Model):
-    """Model MCA data using a fixed list of peak positions and efficiencies
-    """
+    """Model MCA data using a fixed list of peak positions and efficiencies"""
 
     def __init__(self):
         self.config = {
@@ -212,35 +211,6 @@ class SimpleModel(Model):
                 yield name, self.npeaks
             else:
                 raise ValueError(name)
-
-    def _get_parameters(self, linear_only=False):
-        i = 0
-        if linear_only:
-            params = numpy.zeros(self.nlinear_parameters)
-        else:
-            params = numpy.zeros(self.nparameters)
-        for name, n in self._parameter_groups(linear_only=linear_only):
-            if name == "zero":
-                params[i : i + n] = self.zero
-            elif name == "gain":
-                params[i : i + n] = self.gain
-            elif name == "wzero":
-                params[i : i + n] = self.wzero
-            elif name == "wgain":
-                params[i : i + n] = self.wgain
-            elif name == "concentrations":
-                params[i : i + n] = self.concentrations
-            i += n
-        return params
-
-    def _set_parameters(self, params, linear_only=False):
-        i = 0
-        for name, n in self._parameter_groups(linear_only=linear_only):
-            if n > 1:
-                getattr(self, name)[:] = params[i : i + n]
-            else:
-                setattr(self, name, params[i])
-            i += n
 
     def evaluate(self, xdata=None):
         """DEvaluate model
