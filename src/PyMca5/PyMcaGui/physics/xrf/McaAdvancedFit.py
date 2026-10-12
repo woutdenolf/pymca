@@ -440,8 +440,7 @@ class McaAdvancedFit(qt.QWidget):
         else:
             self.matrixXRFMCSpectrumButton.show()
 
-        if True or _logger.getEffectiveLevel() == logging.DEBUG:
-            print("FORCING NOT USING THREADS")
+        if _logger.getEffectiveLevel() == logging.DEBUG:
             self.mcafit.configure(config)
         else:
             try:
@@ -585,8 +584,7 @@ class McaAdvancedFit(qt.QWidget):
             self.graph.removeCurve(key)
         self.plot()
 
-        if True or _logger.getEffectiveLevel() == logging.DEBUG:
-            print("FORCING NOT USING THREADS")
+        if _logger.getEffectiveLevel() == logging.DEBUG:
             self.mcafit.configure(config)
         else:
             try:
@@ -985,8 +983,7 @@ class McaAdvancedFit(qt.QWidget):
         ddict = {}
         ddict.update(config['concentrations'])
         tool.configure(ddict)
-        if True or _logger.getEffectiveLevel() == logging.DEBUG:
-            print("FORCING NOT USING THREADS")
+        if _logger.getEffectiveLevel() == logging.DEBUG:
             ddict, info = tool.processFitResult(fitresult=fitresult,
                                                 elementsfrommatrix=True,
                                                 addinfo=True)
@@ -1760,8 +1757,7 @@ class McaAdvancedFit(qt.QWidget):
             msg.setText("No peaks defined.\nPlease configure peaks")
             msg.exec()
             return
-        if True or _logger.getEffectiveLevel() == logging.DEBUG:
-            print("FORCING NOT USING THREADS")
+        if _logger.getEffectiveLevel() == logging.DEBUG:
             _logger.debug("calling estimate")
             self.mcafit.estimate()
             _logger.debug("calling startfit")
