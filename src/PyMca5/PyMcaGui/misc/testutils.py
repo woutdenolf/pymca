@@ -103,6 +103,8 @@ def qWaitForWindowExposedAndActivate(window, timeout=None):
 
     return result
 
+# Placeholder for QApplication
+_qapp = None
 
 class TestCaseQt(unittest.TestCase):
     """Base class to write test for Qt stuff.
@@ -135,9 +137,6 @@ class TestCaseQt(unittest.TestCase):
     allow to view the tested widgets.
     """
 
-    _qapp = None
-    """Placeholder for QApplication"""
-
     @classmethod
     def exceptionHandler(cls, exceptionClass, exception, stack):
         import traceback
@@ -152,9 +151,15 @@ class TestCaseQt(unittest.TestCase):
         cls._oldExceptionHook = sys.excepthook
         sys.excepthook = cls.exceptionHandler
 
-        # Makes sure a QApplication exists and do it once for all
-        if not qt.QApplication.instance():
-            cls._qapp = qt.QApplication([])
+        global _qapp
+        if _qapp is None:
+            app = qt.QApplication.instance()
+            if app is None:
+                # Makes sure a QApplication exists and do it once for all
+                _qapp = qt.QApplication([])
+            else:
+                import weakref
+                _qapp = weakref.proxy(app)
 
     @classmethod
     def tearDownClass(cls):
