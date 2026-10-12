@@ -372,7 +372,7 @@ class TestCaseQt(unittest.TestCase):
             timeout = int(ms)
             endTimeMS = int(time.time() * 1000) + timeout
             while timeout > 0:
-                cls.qapp.processEvents(qt.QEventLoop.AllEvents,
+                cls._qapp.processEvents(qt.QEventLoop.AllEvents,
                                         timeout)
                 timeout = endTimeMS - int(time.time() * 1000)
         else:
