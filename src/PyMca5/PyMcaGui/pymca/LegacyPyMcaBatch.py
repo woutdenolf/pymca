@@ -1209,6 +1209,7 @@ class McaBatchWindow(qt.QWidget):
         self.l.addWidget(self.timeLeft)
 
         self.timeLeft.setText("Estimated time left = ???? min")
+        self._handleTimeLeftOnImage = False
         self.time0 = None
         self.html  = html
         if htmlindex is None:htmlindex="index.html"
@@ -1289,7 +1290,6 @@ class McaBatchWindow(qt.QWidget):
         if nfiles == 1:
             self._handleTimeLeftOnImage = True
         else:
-            self._handleTimeLeftOnImage = False
             e = time.time()
             if self.time0 is not None:
                 t = (e - self.time0) * (nfiles - index)
