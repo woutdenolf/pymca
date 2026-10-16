@@ -338,7 +338,7 @@ class McaAdvancedFitBatch(object):
         numberofmca = stack.info['Dim_2']
         keylist = ["1.1"] * nimages
         for i in range(nimages):
-          if nimages > 10000:
+            if nimages > 10000:
                 keylist[i] = "1.%06d" % i
             else:
                 keylist[i] = "1.%04d" % i
