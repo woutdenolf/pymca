@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #/*##########################################################################
-# Copyright (C) 2004-2023 European Synchrotron Radiation Facility
+# Copyright (C) 2004-2026 European Synchrotron Radiation Facility
 #
 # This file is part of the PyMca X-ray Fluorescence Toolkit developed at
 # the ESRF.
@@ -1209,6 +1209,7 @@ class McaBatchWindow(qt.QWidget):
         self.l.addWidget(self.timeLeft)
 
         self.timeLeft.setText("Estimated time left = ???? min")
+        self._handleTimeLeftOnImage = False
         self.time0 = None
         self.html  = html
         if htmlindex is None:htmlindex="index.html"
@@ -1284,18 +1285,21 @@ class McaBatchWindow(qt.QWidget):
                         _logger.warning("cannot delete file %s", self.htmlindex)
         nfiles = len(indexlist)-filebeginoffset-fileendoffset
         self.status.setText("Processing file %s" % file)
-        e = time.time()
         self.progressBar.setMaximum(nfiles)
         self.progressBar.setValue(index)
-        if self.time0 is not None:
-            t = (e - self.time0) * (nfiles - index)
-            self.time0 =e
-            if t < 120:
-                self.timeLeft.setText("Estimated time left = %d sec" % (t))
-            else:
-                self.timeLeft.setText("Estimated time left = %d min" % (int(t / 60.)))
+        if nfiles == 1:
+            self._handleTimeLeftOnImage = True
         else:
-            self.time0 = e
+            e = time.time()
+            if self.time0 is not None:
+                t = (e - self.time0) * (nfiles - index)
+                self.time0 = e
+                if t < 120:
+                    self.timeLeft.setText("Estimated time left = %d sec" % (t))
+                else:
+                    self.timeLeft.setText("Estimated time left = %d min" % (int(t / 60.)))
+            else:
+                self.time0 = e
         if sys.platform == 'darwin':
             qApp = qt.QApplication.instance()
             qApp.processEvents()
@@ -1308,6 +1312,17 @@ class McaBatchWindow(qt.QWidget):
         self.imageBar.setValue(i)
         self.mcaBar.setMaximum(1)
         self.mcaBar.setValue(0)
+        if self._handleTimeLeftOnImage:
+            e = time.time()
+            if self.time0 is not None:
+                t = (e - self.time0) * (n - i + 1)
+                self.time0 = e
+                if t < 120:
+                    self.timeLeft.setText("Estimated time left = %d sec" % (t))
+                else:
+                    self.timeLeft.setText("Estimated time left = %d min" % (int(t / 60.)))
+            else:
+                self.time0 = e
 
 
     #def onMca(self, mca, nmca, mcastep):
