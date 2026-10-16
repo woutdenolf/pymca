@@ -1315,7 +1315,7 @@ class McaBatchWindow(qt.QWidget):
         if self._handleTimeLeftOnImage:
             e = time.time()
             if self.time0 is not None:
-                t = (e - self.time0) * (n - i)
+                t = (e - self.time0) * (n - i + 1)
                 self.time0 = e
                 if t < 120:
                     self.timeLeft.setText("Estimated time left = %d sec" % (t))
