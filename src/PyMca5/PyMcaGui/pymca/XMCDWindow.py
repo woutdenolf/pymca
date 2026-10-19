@@ -1228,7 +1228,7 @@ class XMCDTreeWidget(qt.QTreeWidget):
         self.contextMenu = menu
 
     def contextMenuEvent(self, event):
-        if event.reason() == event.Mouse:
+        if event.reason() == qt.QContextMenuEvent.Mouse:
             pos = event.globalPos()
             item = self.itemAt(event.pos())
         else:
