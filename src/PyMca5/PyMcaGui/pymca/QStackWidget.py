@@ -129,10 +129,8 @@ class QStackWidget(StackBase.StackBase,
         box = qt.QSplitter(self)
         if vertical:
             box.setOrientation(qt.Qt.Vertical)
-            boxmainlayout = qt.QVBoxLayout(box)
         else:
             box.setOrientation(qt.Qt.Horizontal)
-            boxmainlayout = qt.QHBoxLayout(box)
 
         self.stackWindow = qt.QWidget(box)
         self.stackWindow.mainLayout = qt.QVBoxLayout(self.stackWindow)
@@ -208,8 +206,6 @@ class QStackWidget(StackBase.StackBase,
         self.roiWindow.mainLayout.addWidget(self.roiWidget)
         box.addWidget(self.stackWindow)
         box.addWidget(self.roiWindow)
-        boxmainlayout.addWidget(self.stackWindow)
-        boxmainlayout.addWidget(self.roiWindow)
         self.mainLayout.addWidget(box)
 
         # scatter mode is configured lazily in setStack when the loaded stack
