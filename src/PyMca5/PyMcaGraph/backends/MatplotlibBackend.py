@@ -135,6 +135,7 @@ from matplotlib.text import Text
 from matplotlib.image import AxesImage, NonUniformImage
 from matplotlib.colors import LinearSegmentedColormap, LogNorm, Normalize
 import time
+import datetime
 
 try:
     from . import _utils
@@ -145,6 +146,19 @@ DEBUG = 0
 
 class ModestImage(AxesImage):
     pass
+
+def _epochText(value):
+    return datetime.datetime.fromtimestamp(value).strftime("%Y-%m-%d %H:%M:%S.%f")
+
+# To split a time string
+# Example with "2026-03-23 14:38:45.500000":
+_EPOCH_TICK_END = {0: 7,      # offset ""                     ticks "2026-03"
+                   5: 10,     # offset "2026-"                ticks "03-23"
+                   8: 16,     # offset "2026-03-"             ticks "23 14:38"
+                   11: 16,    # offset "2026-03-23"           ticks "14:38"
+                   14: 19,    # offset "2026-03-23 14:"       ticks "38:45"
+                   17: None,  # offset "2026-03-23 14:38:"    ticks "45.5"
+                   19: None}  # offset "2026-03-23 14:38:45"  ticks ".5"
 
 class MatplotlibGraph(FigureCanvas):
     def __init__(self, parent=None, **kw):
@@ -1480,6 +1494,8 @@ class MatplotlibBackend(PlotBackend.PlotBackend):
         self.graph = MatplotlibGraph(parent, **kw)
         self.ax2 = self.graph.ax2
         self.ax = self.graph.ax
+        # standard x tick labels, also used when epoch cannot be read as time
+        self._xNumberFormatter = self.ax.get_xaxis().get_major_formatter()
         PlotBackend.PlotBackend.__init__(self, parent)
         self._parent = parent
         self._logX = False
@@ -2299,6 +2315,7 @@ class MatplotlibBackend(PlotBackend.PlotBackend):
             if (xLabel is not None) and (yLabel is not None):
                 axes.set_xlabel(xLabel)
                 axes.set_ylabel(yLabel)
+                self._updateXTickFormatter()
         self._oldActiveCurve = handle
         self._oldActiveCurveLegend = handle.get_label()
         if replot:
@@ -2323,6 +2340,43 @@ class MatplotlibBackend(PlotBackend.PlotBackend):
 
     def setGraphXLabel(self, label="X"):
         self.ax.set_xlabel(label)
+        self._updateXTickFormatter()
+
+    def _updateXTickFormatter(self):
+        # x values are shown as local times when the x label contains "epoch"
+        if self.ax.get_xscale() != "linear":
+            return
+        if "epoch" in self.ax.get_xlabel():
+            self.ax.get_xaxis().set_major_formatter(self._epochTickText)
+        else:
+            self.ax.get_xaxis().set_major_formatter(self._xNumberFormatter)
+
+    def _epochTickText(self, x, pos=None):
+        formatter = self.ax.get_xaxis().get_major_formatter()
+        try:
+            first, last = self.ax.get_xlim()
+            first = _epochText(first)
+            last = _epochText(last)
+            text = _epochText(x)
+        except Exception as e:
+            if pos == 0:
+                # to show once per redraw
+                print("Could not read epoch as time: %s", e)
+            numbers = self._xNumberFormatter
+            numbers.set_locs(self.ax.get_xaxis().get_majorticklocs())
+            formatter.set_offset_string(numbers.get_offset())
+            return numbers(x, pos)
+        # search common part to show it on side
+        common = 0
+        for length in _EPOCH_TICK_END:
+            if first[:length] != last[:length]:
+                break
+            common = length
+        formatter.set_offset_string(first[:common].strip())
+        end = _EPOCH_TICK_END[common]
+        if end is None:
+            return text[common:].rstrip("0").rstrip(".") or ".0"
+        return text[common:end]
 
     def setGraphXLimits(self, xmin, xmax):
         if xmin == xmax:
@@ -2374,6 +2428,8 @@ class MatplotlibBackend(PlotBackend.PlotBackend):
                 if self.ax2.get_visible():
                     self.ax2.set_xscale('linear')
             self.ax.set_xscale('linear')
+            # set_xscale restores the default formatter
+            self._updateXTickFormatter()
 
     def setYAxisAutoScale(self, flag=True):
         if flag:
